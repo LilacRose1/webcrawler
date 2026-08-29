@@ -10,10 +10,10 @@ def normalize_url(url:str) -> str:
 def get_heading_from_html(html: str) -> str:
     soup: BeautifulSoup = BeautifulSoup(html, "html.parser")
 
-    if soup.find('h1'):
-        return soup.find('h1').get_text(strip=True)
-    elif soup.find('h2'):
-        return soup.find('h2').get_text(strip=True)
+    if soup.find("h1"):
+        return soup.find("h1").get_text(strip=True)
+    elif soup.find("h2"):
+        return soup.find("h2").get_text(strip=True)
     else:
         return ""
 
@@ -51,4 +51,15 @@ def get_images_from_html(html: str, base_url: str) -> list[str]:
         images_list.append(urljoin(base_url, image.get("src")))
 
     return images_list
+
+def extract_page_data(html: str, page_url: str):
+    page_data = {}
+    page_data["url"] = page_url
+    page_data["heading"] = get_heading_from_html(html)
+    page_data["first_paragraph"] = get_first_paragraph_from_html(html)
+    page_data["outgoing_links"] = get_urls_from_html(html, page_url)
+    page_data["image_urls"] = get_images_from_html(html, page_url)
+    return page_data
+
+
 

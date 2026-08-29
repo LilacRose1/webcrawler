@@ -114,6 +114,58 @@ class TestCrawl(unittest.TestCase):
             "https://cdn.boot.dev/banner.jpg",
         ]
         self.assertEqual(actual, expected)
+
+    def test_extract_page_data_basic(self):
+        input_url = "https://crawler-test.com"
+        input_body = """<html><body>
+            <h1>Test Title</h1>
+            <p>This is the first paragraph.</p>
+            <a href="/link1">Link 1</a>
+            <img src="/image1.jpg" alt="Image 1">
+        </body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://crawler-test.com",
+            "heading": "Test Title",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": ["https://crawler-test.com/link1"],
+            "image_urls": ["https://crawler-test.com/image1.jpg"],
+        }
+        self.assertEqual(actual, expected)
+
+    def test_extract_page_data_noimage_noheading(self):
+        input_url = "https://bootdev-test.com"
+        input_body = """<html><body>
+            <p>This is the first paragraph.</p>
+            <a href="/link1">Link 1</a>
+        </body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://bootdev-test.com",
+            "heading": "",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": ["https://bootdev-test.com/link1"],
+            "image_urls": [],
+        }
+        self.assertEqual(actual, expected)
+
+
+    def test_extract_page_data_heading2_nolink(self):
+        input_url = "https://bootdev-test.com"
+        input_body = """<html><body>
+            <h2>Hello</h2>
+            <p>This is the first paragraph.</p>
+        </body></html>"""
+        actual = extract_page_data(input_body, input_url)
+        expected = {
+            "url": "https://bootdev-test.com",
+            "heading": "Hello",
+            "first_paragraph": "This is the first paragraph.",
+            "outgoing_links": [],
+            "image_urls": [],
+        }
+        self.assertEqual(actual, expected)
+
 if __name__ == "__main__":
     unittest.main()
 
