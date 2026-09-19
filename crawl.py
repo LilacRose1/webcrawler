@@ -1,6 +1,32 @@
 from urllib.parse import SplitResult, urlsplit, urljoin
 from bs4 import BeautifulSoup
 import requests
+import asyncio
+import aiohttp
+
+class AsyncCrawler:
+    def __init__(self, base_url, domain, page_data):
+        self.base_url = base_url
+        self.base_domain = domain
+        self.page_data = page_data
+        self.visited = 0
+        self.lock = asyncio.Lock()
+        self.max_concurrency = 1
+        self.sem = asyncio.Semaphore(self.max_concurrency)
+        self.session = aiohttp.ClientSession()
+
+    async def __aenter__(self):
+        self.session = aiohttp.ClientSession()
+        return self
+
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.close()
+
+    async def add_page_visit(self, normalized_url):
+
+
+
 def normalize_url(url:str) -> str:
     url_split: SplitResult = urlsplit(url)
     normal_url: str = f"{url_split.netloc.lower()}{url_split.path}"
@@ -97,6 +123,7 @@ def crawl_page(base_url,
         html = get_html(current_url)
     except Exception as e:
         print(f"Error: {e}")
+        return page_data
 
     data = extract_page_data(html, current_url)
 
