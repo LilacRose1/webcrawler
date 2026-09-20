@@ -81,7 +81,6 @@ class AsyncCrawler:
                 try:
                     html = await self.get_html(current_url)
                     data = extract_page_data(html, current_url)
-                    print(data["url"])
                     async with self.lock:
                         self.page_data[normal_url] = data
                 except Exception as e:

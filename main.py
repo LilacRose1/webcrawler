@@ -1,7 +1,7 @@
-from urllib.parse import urlsplit, urljoin
 import sys
 from crawl import crawl_site_async
 import asyncio
+from json_report import write_json_report
 
 async def main():
 
@@ -26,10 +26,7 @@ async def main():
         print(f"Error: {str(e)}")
         sys.exit(1)
 
-    print(result)
-    for key, value in result.items():
-        print(value["url"])
-
+    write_json_report(result)
 
 if __name__ == "__main__":
     asyncio.run(main())
