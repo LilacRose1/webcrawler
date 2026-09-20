@@ -4,15 +4,18 @@ import asyncio
 import aiohttp
 
 class AsyncCrawler:
-    def __init__(self, base_url):
+    def __init__(self, base_url, max_concurrency, max_pages):
         self.base_url = base_url
         self.base_domain = urlsplit(base_url).netloc
         self.page_data = {}
         self.visited = set()
         self.lock = asyncio.Lock()
-        self.max_concurrency = 10
+        self.max_concurrency = max_concurrency
         self.semaphore = asyncio.Semaphore(self.max_concurrency)
         self.session = None
+        self.max_pages = max_pages
+        self.should_stop = False
+        self.all_tasks = set()
 
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -23,8 +26,16 @@ class AsyncCrawler:
         await self.session.close()
 
     async def add_page_visit(self, normalized_url):
+        if self.should_stop:
+            return False
 
         async with self.lock:
+
+            if len(self.visited) >= self.max_pages:
+                self.should_stop = True
+                print("Reached maximum number of pages to crawl")
+                return False
+
             if normalized_url in self.visited:
                 return False
             else:
@@ -46,46 +57,49 @@ class AsyncCrawler:
         return html
 
     async def crawl_page(self, current_url: str | None = None):
-
-        if current_url is None:
-            current_url: str = self.base_url
-
-        if urlsplit(self.base_url).netloc.lower() != urlsplit(current_url).netloc.lower():
-            return self.page_data
-
-        normal_url = normalize_url(current_url)
-
-        new_page: bool = await self.add_page_visit(normal_url)
-
-        if not new_page:
-            return self.page_data
-
-        if normal_url in self.page_data.keys():
-            return self.page_data
-
-        async with self.semaphore:
-            try:
-                html = await self.get_html(current_url)
-                data = extract_page_data(html, current_url)
-                async with self.lock:
-                    self.page_data[normal_url] = data
-            except Exception as e:
-                print(f"Error: {e}")
+        try:
+            if self.should_stop:
                 return self.page_data
 
-        tasks = []
-        for url in self.page_data[normal_url]["outgoing_links"]:
-            task = asyncio.create_task(self.crawl_page(url))
-            tasks.append(task)
+            if current_url is None:
+                current_url: str = self.base_url
 
-        if tasks:
-            await asyncio.gather(*tasks)
+            if urlsplit(self.base_url).netloc.lower() != urlsplit(current_url).netloc.lower():
+                return self.page_data
 
-        return self.page_data
+            normal_url = normalize_url(current_url)
+
+            new_page: bool = await self.add_page_visit(normal_url)
+
+            if not new_page:
+                return self.page_data
+
+            if normal_url in self.page_data.keys():
+                return self.page_data
+
+            async with self.semaphore:
+                try:
+                    html = await self.get_html(current_url)
+                    data = extract_page_data(html, current_url)
+                    print(data["url"])
+                    async with self.lock:
+                        self.page_data[normal_url] = data
+                except Exception as e:
+                    print(f"Error: {e}")
+                    return self.page_data
+
+            for url in self.page_data[normal_url]["outgoing_links"]:
+                task = asyncio.create_task(self.crawl_page(url))
+                self.all_tasks.add(task)
+
+        finally:
+            self.all_tasks.discard(asyncio.current_task())
+
 
     async def crawl(self):
-        self.page_data = await self.crawl_page(self.base_url)
-
+        await self.crawl_page(self.base_url)
+        while len(self.all_tasks) > 0:
+            await asyncio.wait(self.all_tasks.copy(), return_when=asyncio.FIRST_COMPLETED)
         return self.page_data
 
 
@@ -95,8 +109,8 @@ def normalize_url(url:str) -> str:
     normal_url: str = normal_url.rstrip('/')
     return normal_url.lower()
 
-async def crawl_site_async(base_url):
-    async with AsyncCrawler(base_url) as Crawler:
+async def crawl_site_async(base_url, max_concurrency, max_pages):
+    async with AsyncCrawler(base_url, max_concurrency, max_pages) as Crawler:
         data = await Crawler.crawl()
 
     return data
